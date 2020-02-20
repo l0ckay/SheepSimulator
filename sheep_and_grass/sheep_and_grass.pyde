@@ -10,21 +10,24 @@ BROWN = color(100, 100, 10)
 
 
 # GRASS VARIABLES
-grassSize = 10
+grassSize = 15
 grassAvail = 0
-regenRate = 0.005 #0.0035
+regenRate = 0.0035 #0.0035
+scaleGraphDisplay = False # does the grass line on the time graph adjust its height?
 
 # SHEEP VARIABLES
 reproductionEnergy = 50
-reproductionCost = 0.01
+reproductionCost = 30
 hungerExponent = 1.3
 
 # DISPLAY VARIABLES
 _size = 600
 dataPanelHeight = 250
-logUpdateRate = 2 # How often is the log at the bottom of the screen updated?
-leftTextMargin = 20
-graphWidth = 400
+logUpdateRate = 1 # How often is the log at the bottom of the screen updated?
+textLeftMargin = 20
+textTopMargin = 70
+
+graphWidth = 380
 graphHeight = 200
 graphLeftPos = 180
 graphTopPos = 20
@@ -84,14 +87,14 @@ class Sheep:
             sheepCount[self.col] += 1
     
     def update(self):
-        global sheepColors, reproductionEnergy, reproductionCost, hungerExponent
+        global sheepColors, reproductionEnergy, reproductionCost, hungerExponent, grassSize
         
-        self.x+=random(-self.moveSpeed, self.moveSpeed)
-        self.y+=random(-self.moveSpeed, self.moveSpeed)
+        self.x+=random(-self.moveSpeed, self.moveSpeed)*grassSize
+        self.y+=random(-self.moveSpeed, self.moveSpeed)*grassSize
         self.x = self.x%_size
         self.y = self.y%_size
         self.checkGrass()
-        self.energy -= (1.0*self.moveSpeed)**hungerExponent/(10.0**hungerExponent)
+        self.energy -= (1.0*self.moveSpeed*grassSize)**hungerExponent/(grassSize**hungerExponent)
         #stroke(0)
         noStroke()
         fill(sheepColors[self.col])
@@ -121,13 +124,13 @@ class Sheep:
         sheeps.remove(self)
 
 # White family is the general
-sheeps.append(Sheep(_size/4,_size/4,10, "WHITE"))
+sheeps.append(Sheep(_size/4,_size/4,1.0, "WHITE"))
 # Red is slow
-sheeps.append(Sheep(_size/4,_size/4*3,9,"RED"))
+sheeps.append(Sheep(_size/4,_size/4*3,0.9,"RED"))
 # Purple is fast
-sheeps.append(Sheep(_size/4*3,_size/4,11,"PURPLE"))
+sheeps.append(Sheep(_size/4*3,_size/4,1.1,"PURPLE"))
 # Blue is very fast
-sheeps.append(Sheep(_size/4*3,_size/4*3,13,"BLUE"))
+sheeps.append(Sheep(_size/4*3,_size/4*3,1.3,"BLUE"))
 
 for g in range(_size/grassSize):
     row = []
@@ -164,13 +167,13 @@ def draw():
     rect(0, _size, _size, dataPanelHeight)
     
     fill(230)
-    text("Day number "+str(frameCount),leftTextMargin, _size+20)
-    text("Available grass "+str(round(grassPercentAvail,2))+" %", leftTextMargin, _size+40)
+    text("Day number "+str(frameCount),textLeftMargin, _size+textTopMargin)
+    text("Available grass "+str(round(grassPercentAvail,2))+" %", textLeftMargin, _size+textTopMargin+20)
     for index, co in enumerate(sheepCount.keys()):
         # Show populations of each species in the list
         fill(230)
-        text(co, leftTextMargin, _size+60+20*index)
-        text(sheepCount[co], leftTextMargin+100, _size+60+20*index)
+        text(co, textLeftMargin, _size+textTopMargin+40+20*index)
+        text(sheepCount[co], textLeftMargin+100, _size+textTopMargin+40+20*index)
         if frameCount%logUpdateRate==0:
             # Add the populations to the sheepCountLog
             sheepCountLog[co].append(sheepCount[co])
@@ -179,6 +182,20 @@ def draw():
     if frameCount%logUpdateRate==0 :
         grassGraph.append(grassPercentAvail)
         
+        
+    maxSheepPop = 0
+    for pops in sheepCountLog.values():
+        if len(pops)>0:
+            maxi = max(pops[-graphWidth:])
+            if maxi > maxSheepPop:
+                maxSheepPop = maxi    
+            if maxSheepPop == 0:
+                maxSheepPop = 1
+                
+    # Mark "height" of top line
+    fill(230)
+    text(maxSheepPop, graphLeftPos - 30, _size+graphTopPos+5)
+    text("0", graphLeftPos - 10, _size+graphTopPos+graphHeight+5)
     # Draw graph lines
     stroke(230)
     strokeWeight(2)
@@ -192,19 +209,28 @@ def draw():
     for i,val in enumerate(grassGraph[-graphWidth:]):
         stroke(GREEN)
         strokeWeight(2)
-        point(graphLeftPos+i, _size+graphTopPos+graphHeight-val/max(grassGraph[-graphWidth:])*graphHeight)
+        #point(graphLeftPos+i, _size+graphTopPos+graphHeight-val/max(grassGraph[-graphWidth:])*graphHeight)
+        divisor = 100
+        if scaleGraphDisplay:
+            divisor = max(grassGraph[-graphWidth:])
+        if i > 0:
+            line(graphLeftPos+i, _size+graphTopPos+graphHeight-val/divisor*graphHeight,
+                 graphLeftPos+i-1, _size+graphTopPos+graphHeight-lastVal/divisor*graphHeight)
+        lastVal = val
         
-    maxSheepPop = 0
-    for pops in sheepCountLog.values():
-        if len(pops)>0:
-            maxi = max(pops[-graphWidth:])
-            if maxi > maxSheepPop:
-                maxSheepPop = maxi
+    
             
     for col in sheepCountLog.keys():
+        stroke(sheepColors[col])
         for i, val in enumerate(sheepCountLog[col][-graphWidth:]):
-            stroke(sheepColors[col])
-            strokeWeight(1)
-            if(val > 0):
-                point(graphLeftPos+i, _size+graphTopPos+graphHeight-1.0*val/maxSheepPop*graphHeight)
-    
+            strokeWeight(2)
+            if lastVal > 0 and i > 0:
+                line(graphLeftPos+i, _size+graphTopPos+graphHeight-1.0*val/maxSheepPop*graphHeight,
+                     graphLeftPos+i-1, _size+graphTopPos+graphHeight-1.0*lastVal/maxSheepPop*graphHeight)
+            lastVal = val
+        fill(sheepColors[col])
+        try:
+            if lastVal > 0:
+                text(lastVal, graphLeftPos+graphWidth+4, _size+graphTopPos+graphHeight-1.0*lastVal/maxSheepPop*graphHeight+3)
+        except:
+            pass
