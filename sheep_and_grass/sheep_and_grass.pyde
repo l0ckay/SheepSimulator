@@ -8,21 +8,30 @@ sheepColors = {"WHITE":color(255),
 GREEN = color(0, 150, 0)
 BROWN = color(100, 100, 10)
 
-_size = 600
-
-def setup():
-    frameRate(200)
-    size(_size,_size+200)
 
 # GRASS VARIABLES
 grassSize = 10
 grassAvail = 0
-regenRate = 0.0035 #0.0035
+regenRate = 0.005 #0.0035
 
 # SHEEP VARIABLES
 reproductionEnergy = 50
-reproductionCost = 30
+reproductionCost = 0.01
 hungerExponent = 1.3
+
+# DISPLAY VARIABLES
+_size = 600
+dataPanelHeight = 250
+logUpdateRate = 2 # How often is the log at the bottom of the screen updated?
+leftTextMargin = 20
+graphWidth = 400
+graphHeight = 200
+graphLeftPos = 180
+graphTopPos = 20
+
+def setup():
+    frameRate(200)
+    size(_size,_size+dataPanelHeight)
 
 class Grass:
     global regenRate
@@ -55,12 +64,14 @@ class Grass:
         
 sheeps = []
 sheepCount = {}
+sheepCountLog = {}
 grassGrid = []
 
+grassGraph = []
 
 class Sheep:
     def __init__(self, x, y, moveSpeed, col):
-        global sheepCount
+        global sheepCount, sheepCountLog
         self.x = x
         self.y = y
         self.col = col
@@ -68,6 +79,7 @@ class Sheep:
         self.energy = 20
         if self.col not in sheepCount:
             sheepCount[self.col] = 1
+            sheepCountLog[self.col] = []
         else:
             sheepCount[self.col] += 1
     
@@ -126,10 +138,13 @@ for g in range(_size/grassSize):
 
 numGrass = len(grassGrid)*len(grassGrid[0])
 
+maxSheepPop = 0
 
 def draw():
+    global maxSheepPop
     if len(sheeps)==0:
-        noLoop()
+        pass
+        #noLoop()
         
     global sheepCount
     
@@ -138,20 +153,58 @@ def draw():
     for gc in grassGrid:
         for g in gc:
             grassAvail += g.update()
+            
+    grassPercentAvail = grassAvail*100.0/numGrass
+            
     for s in sheeps:
         s.update()
     
-    
-    fill(255)
+    fill(40)
     noStroke()
-    rect(0, _size, _size, 200)
+    rect(0, _size, _size, dataPanelHeight)
     
-    fill(20)
-    text("Day number "+str(frameCount), 50, _size+20)
-    text("Available grass "+str(round(100.0*grassAvail/numGrass,2))+" %", 50, _size+40)
-    
+    fill(230)
+    text("Day number "+str(frameCount),leftTextMargin, _size+20)
+    text("Available grass "+str(round(grassPercentAvail,2))+" %", leftTextMargin, _size+40)
     for index, co in enumerate(sheepCount.keys()):
-        fill(20)
-        text(co, 50, _size+60+20*index)
-        text(sheepCount[co], 150, _size+60+20*index)
+        # Show populations of each species in the list
+        fill(230)
+        text(co, leftTextMargin, _size+60+20*index)
+        text(sheepCount[co], leftTextMargin+100, _size+60+20*index)
+        if frameCount%logUpdateRate==0:
+            # Add the populations to the sheepCountLog
+            sheepCountLog[co].append(sheepCount[co])
+        
+    # Show grass population graph
+    if frameCount%logUpdateRate==0 :
+        grassGraph.append(grassPercentAvail)
+        
+    # Draw graph lines
+    stroke(230)
+    strokeWeight(2)
+    line(graphLeftPos, _size+graphTopPos+graphHeight, graphLeftPos+graphWidth, _size+graphTopPos+graphHeight) # Bottom line
+    line(graphLeftPos, _size+graphTopPos, graphLeftPos+graphWidth, _size+graphTopPos)   # Top line
+    stroke(200)
+    strokeWeight(1)
+    #line(graphLeftPos, _size+graphTopPos+graphHeight/2, graphLeftPos+graphWidth, _size+graphTopPos+graphHeight/2) # Middle line
+    
+    # Draw grass population points
+    for i,val in enumerate(grassGraph[-graphWidth:]):
+        stroke(GREEN)
+        strokeWeight(2)
+        point(graphLeftPos+i, _size+graphTopPos+graphHeight-val/max(grassGraph[-graphWidth:])*graphHeight)
+        
+    maxSheepPop = 0
+    for pops in sheepCountLog.values():
+        if len(pops)>0:
+            maxi = max(pops[-graphWidth:])
+            if maxi > maxSheepPop:
+                maxSheepPop = maxi
+            
+    for col in sheepCountLog.keys():
+        for i, val in enumerate(sheepCountLog[col][-graphWidth:]):
+            stroke(sheepColors[col])
+            strokeWeight(1)
+            if(val > 0):
+                point(graphLeftPos+i, _size+graphTopPos+graphHeight-1.0*val/maxSheepPop*graphHeight)
     
