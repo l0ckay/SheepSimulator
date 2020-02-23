@@ -33,7 +33,7 @@ graphLeftPos = 180
 graphTopPos = 20
 
 def setup():
-    frameRate(200)
+    frameRate(5)
     size(_size,_size+dataPanelHeight)
 
 class Grass:
